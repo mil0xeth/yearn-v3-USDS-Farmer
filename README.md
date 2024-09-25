@@ -1,6 +1,6 @@
-# USDC PSM sDAI Strategy for yearn V3
+# sUSDS Farmer for USDC
 
-yearn v3 strategy that trade USDC through PSM and farms sDAI.
+yearn-v3 Strategy that trades USDC through PSM to farm sUSDS.
 
 ### Requirements
 

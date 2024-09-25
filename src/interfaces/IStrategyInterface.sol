@@ -10,7 +10,7 @@ interface IStrategyInterface is IStrategy {
     ) external view returns (bool, bytes memory);
 
     function balanceAsset() external view returns (uint256);
-    function balanceSDAI() external view returns (uint256);
+    function balanceSUSDS() external view returns (uint256);
 
     function setProfitLimitRatio(uint256) external;
     function setDepositLimit(uint256) external;

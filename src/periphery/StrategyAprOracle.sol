@@ -4,7 +4,7 @@ pragma solidity 0.8.18;
 import {AprOracleBase} from "@periphery/AprOracle/AprOracleBase.sol";
 
 contract StrategyAprOracle is AprOracleBase {
-    constructor() AprOracleBase("yearn-v3-USDC-PSM-sDAI", 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52) {}
+    constructor() AprOracleBase("yearn-v3-USDC-PSM-SUSDS", 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52) {}
     uint256 internal constant RAY = 1e27;
     uint256 internal constant secondsPerYear = 31536000;
     PotLike internal constant pot = PotLike(0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7);
