@@ -1,6 +1,6 @@
-# sUSDS Farmer for USDC
+# USDS Farmer for USDS, DAI, or USDC
 
-yearn-v3 Strategy that trades USDC through PSM to farm sUSDS.
+yearn v3 strategies that farm sUSDS (SkyLender) or SKY rewards (SkyCompounder) for USDS, DAI (USDSFarmDAI), or USDC (USDSFarmUSDC).
 
 ### Requirements
 

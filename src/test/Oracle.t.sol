@@ -13,7 +13,7 @@ contract OracleTest is Setup {
         oracle = new StrategyAprOracle();
     }
 
-    function checkOracle(address _strategy, uint256) public {
+    function checkOracle(address _strategy) public {
         // Check set up
         // TODO: Add checks for the setup
 
@@ -24,16 +24,20 @@ contract OracleTest is Setup {
         assertLt(currentApr, 20 * 1e16, "Not less than 20% APR");
     }
 
+    function test_oracle_single() public {
+        uint256 currentApr = oracle.aprAfterDebtChange(address(strategy), 0);
+        console.log("currentApr: ", currentApr);
+        assertGe(currentApr, 6 * 1e16, "Not more than 6% APR");
+        assertLt(currentApr, 20 * 1e16, "Not less than 20% APR");
+    }
+
     function test_oracle(uint256 _amount, uint16 _percentChange) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
         _percentChange = uint16(bound(uint256(_percentChange), 10, MAX_BPS));
 
         mintAndDepositIntoStrategy(strategy, user, _amount);
 
-        // TODO: adjust the number to base _perfenctChange off of.
-        uint256 _delta = (_amount * _percentChange) / MAX_BPS;
-
-        checkOracle(address(strategy), _delta);
+        checkOracle(address(strategy));
     }
 
 }

@@ -7,3 +7,8 @@ interface IPSM {
     function tin() external view returns(uint256);
     function tout() external view returns(uint256);
 }
+
+interface IExchange {
+    function daiToUsds(address usr, uint256 wad) external;
+    function usdsToDai(address usr, uint256 wad) external;
+}

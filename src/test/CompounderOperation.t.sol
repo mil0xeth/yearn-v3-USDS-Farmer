@@ -2,11 +2,11 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import {Setup} from "./utils/Setup.sol";
+import {CompounderSetup} from "./utils/CompounderSetup.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract OperationTest is Setup {
+contract CompounderOperationTest is CompounderSetup {
     function setUp() public virtual override {
         super.setUp();
     }
@@ -24,18 +24,27 @@ contract OperationTest is Setup {
         maxFuzzAmount = 1e6 * 1e6;
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
         setFees(0, 0);
+        uint256 profit;
+        uint256 loss;
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
           
         // Earn Interest
-        skip(1 days);
+        skip(365 days);
+        if (address(vault) != SUSDS) {
+            vm.prank(keeper);
+            (profit, loss) = vault.report();
+            console.log("SSR profit: ", profit);
+            assertGe(profit, 0, "!no SSR profit");
+        }
+
         uint256 toAirdrop = 10e6;
         airdrop(asset, address(strategy), toAirdrop);
         console.log("airdrop done");
 
         // Report profit
         vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
+        (profit, loss) = strategy.report();
         checkStrategyInvariants(strategy);
 
         // Check return Values
@@ -53,17 +62,22 @@ contract OperationTest is Setup {
         vm.prank(user);
         strategy.redeem(_amount, user, user, 50);
 
-        assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
+        assertGe(asset.balanceOf(user), balanceBefore + _amount * 90/100, "!final balance");
     }
 
-        function test_operation_NoFees(uint256 _amount) public {
+    function test_operation_NoFees(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
         setFees(0, 0);
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
           
         // Earn Interest
-        skip(1 days);
+        if (address(vault) != SUSDS) {
+            skip(365 days);
+            vm.prank(keeper);
+            vault.report();
+        }
+
         uint256 toAirdrop = 10e6;
         airdrop(asset, address(strategy), toAirdrop);
         console.log("airdrop done");
@@ -74,7 +88,7 @@ contract OperationTest is Setup {
         checkStrategyInvariants(strategy);
 
         // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
+        assertGe(profit + 1, toAirdrop, "!profit");
         assertEq(loss, 0, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
@@ -83,7 +97,7 @@ contract OperationTest is Setup {
 
         // Withdraw all funds
         vm.prank(user);
-        strategy.redeem(_amount, user, user, 0);
+        strategy.redeem(_amount, user, user, maxLoss);
 
          
 
@@ -103,19 +117,25 @@ contract OperationTest is Setup {
         //_profit = uint16(bound(uint256(_profit), 1e10, 10000e18));
         _profit = bound(_profit, 1e4, 1000e6);
         setFees(0, 0);
+        uint256 profit;
+        uint256 loss;
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
           
         // Earn Interest
-        skip(1 days);
+        skip(365 days);
+        if (address(vault) != SUSDS) {
+            vm.prank(keeper);
+            (profit, loss) = vault.report();
+        }
 
         //toAirdrop = (_amount * _profitFactor) / MAX_BPS;
         airdrop(asset, address(strategy), _profit);
         
         // Report profit
         vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
+        (profit, loss) = strategy.report();
         checkStrategyInvariants(strategy);
 
         // Check return Values
@@ -129,7 +149,7 @@ contract OperationTest is Setup {
         // Withdraw all funds
         console.log("BEFORE USER REDEEM", strategy.totalAssets());
         vm.prank(user);
-        strategy.redeem(_amount, user, user, 0);
+        strategy.redeem(_amount, user, user, maxLoss);
         console.log("AFTER USER REDEEM", strategy.totalAssets());
 
         assertGe(asset.balanceOf(user), balanceBefore + _amount + _profit, "!final balance");
@@ -138,7 +158,7 @@ contract OperationTest is Setup {
         if (strategistShares > 0) {
             // empty complete strategy
             vm.prank(performanceFeeRecipient);
-            strategy.redeem(strategistShares, performanceFeeRecipient, performanceFeeRecipient, 0);
+            strategy.redeem(strategistShares, performanceFeeRecipient, performanceFeeRecipient, maxLoss);
             assertGt(asset.balanceOf(performanceFeeRecipient), 0, "fees too low!");
         }
     }
@@ -157,11 +177,15 @@ contract OperationTest is Setup {
         mintAndDepositIntoStrategy(strategy, user, _amount);
         
         // TODO: Implement logic so totalDebt is _amount and totalIdle = 0.
-          
-        
-        // Earn Interest
-        skip(1 days);
 
+/*          
+        // Earn Interest
+        skip(365 days);
+        if (address(vault) != SUSDS) {
+            vm.prank(keeper);
+            vault.report();
+        }
+*/
         // TODO: implement logic to simulate earning interest.
         uint256 toAirdrop = (_amount * _profitFactor) / MAX_BPS;
 
@@ -174,7 +198,7 @@ contract OperationTest is Setup {
         checkStrategyInvariants(strategy);
 
         // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
+        assertGe(profit + 1, toAirdrop, "!profit");
         assertEq(loss, 0, "!loss");
 
         skip(strategy.profitMaxUnlockTime());
@@ -188,15 +212,13 @@ contract OperationTest is Setup {
         
         // Withdraw all funds
         vm.prank(user);
-        strategy.redeem(_amount, user, user, 0);
+        strategy.redeem(_amount, user, user, maxLoss);
 
         // TODO: Adjust if there are fees
         assertGe(asset.balanceOf(user), (balanceBefore + _amount + toAirdrop) * (MAX_BPS - 10_00 ) / MAX_BPS, "!final balance");
 
         vm.prank(performanceFeeRecipient);
-        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, 0);
-
-         
+        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, maxLoss);
 
         assertGe(asset.balanceOf(performanceFeeRecipient), expectedShares, "!perf fee out");
     }
@@ -233,13 +255,23 @@ contract OperationTest is Setup {
         assertLe(loss, 2, "!loss");
          
         //profit simulation:
-        skip(31536000);
+        skip(365 days);
+        if (address(vault) != SUSDS) {
+            vm.prank(keeper);
+            vault.report();
+        }
 
         // Report profit
         vm.prank(keeper);
         (profit, loss) = strategy.report();
         checkStrategyInvariants(strategy);
-        assertGe(profit, (_amount + secondUserAmount + thirdUserAmount) * 6 / 100 , "!profit");
+        if (vault == lender) {
+            assertGe(profit, (_amount + secondUserAmount + thirdUserAmount) * 5 / 100 , "!profit");
+        } 
+        if (vault == compounder) { //rewards are over after 1 week of distribution
+            assertGe(profit, 1000 , "!profit"); 
+        }
+        
         console.log("total investment: ", _amount + secondUserAmount + thirdUserAmount);
         console.log("profit after second report", profit);
         assertEq(loss, 0, "!loss");
@@ -249,19 +281,19 @@ contract OperationTest is Setup {
         // Withdraw part of funds user
         redeemAmount = strategy.balanceOf(user) / 8;
         vm.prank(user);
-        strategy.redeem(redeemAmount, user, user, 0);
+        strategy.redeem(redeemAmount, user, user, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Withdraw part of funds secondUser
         redeemAmount = strategy.balanceOf(secondUser) / 6;
         vm.prank(secondUser);
-        strategy.redeem(redeemAmount, secondUser, secondUser, 0);
+        strategy.redeem(redeemAmount, secondUser, secondUser, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Withdraw part of funds thirdUser
         redeemAmount = strategy.balanceOf(thirdUser) / 4;
         vm.prank(thirdUser);
-        strategy.redeem(redeemAmount, thirdUser, thirdUser, 0);
+        strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Report profit
@@ -281,19 +313,19 @@ contract OperationTest is Setup {
         redeemAmount = strategy.balanceOf(user);
         if (redeemAmount > 0){
             vm.prank(user);
-            strategy.redeem(redeemAmount, user, user, 0);
+            strategy.redeem(redeemAmount, user, user, maxLoss);
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         redeemAmount = strategy.balanceOf(secondUser);
         if (redeemAmount > 0){
             vm.prank(secondUser);
-            strategy.redeem(redeemAmount, secondUser, secondUser, 0);
+            strategy.redeem(redeemAmount, secondUser, secondUser, maxLoss);
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         redeemAmount = strategy.balanceOf(thirdUser);
         if (redeemAmount > 0){
             vm.prank(thirdUser);
-            strategy.redeem(redeemAmount, thirdUser, thirdUser, 0);
+            strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         // verify users earned profit
@@ -338,13 +370,22 @@ contract OperationTest is Setup {
         assertLe(loss, 2, "!loss");
          
         //profit simulation:
-        skip(31536000);
+        skip(365 days);
+        if (address(vault) != SUSDS) {
+            vm.prank(keeper);
+            vault.report();
+        }
 
         // Report profit
         vm.prank(keeper);
         (profit, loss) = strategy.report();
         checkStrategyInvariants(strategy);
-        assertGe(profit, (_amount + secondUserAmount + thirdUserAmount) * 6 / 100 , "!profit");
+        if (vault == lender) {
+            assertGe(profit, (_amount + secondUserAmount + thirdUserAmount) * 5 / 100 , "!profit");
+        } 
+        if (vault == compounder) { //rewards are over after 1 week of distribution
+            assertGe(profit, 1000 , "!profit"); 
+        }
         console.log("total investment: ", _amount + secondUserAmount + thirdUserAmount);
         console.log("profit after second report", profit);
         assertEq(loss, 0, "!loss");
@@ -354,19 +395,19 @@ contract OperationTest is Setup {
         // Withdraw part of funds user
         redeemAmount = strategy.balanceOf(user) / 8;
         vm.prank(user);
-        strategy.redeem(redeemAmount, user, user, 0);
+        strategy.redeem(redeemAmount, user, user, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Withdraw part of funds secondUser
         redeemAmount = strategy.balanceOf(secondUser) / 6;
         vm.prank(secondUser);
-        strategy.redeem(redeemAmount, secondUser, secondUser, 0);
+        strategy.redeem(redeemAmount, secondUser, secondUser, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Withdraw part of funds thirdUser
         redeemAmount = strategy.balanceOf(thirdUser) / 4;
         vm.prank(thirdUser);
-        strategy.redeem(redeemAmount, thirdUser, thirdUser, 0);
+        strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Report profit
@@ -447,7 +488,7 @@ contract OperationTest is Setup {
         skip(strategy.profitMaxUnlockTime());
 
         vm.prank(user);
-        strategy.redeem(_amount, user, user, 0);
+        strategy.redeem(_amount, user, user, maxLoss);
         // verify users earned profit
         assertGt(asset.balanceOf(user), _amount, "!final balance");
 

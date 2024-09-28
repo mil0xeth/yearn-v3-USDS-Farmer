@@ -7,6 +7,8 @@ import {ExtendedTest} from "./ExtendedTest.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {USDSFarmerUSDC} from "../../USDSFarmerUSDC.sol";
+import {SkyCompounder} from "../../SkyCompounder.sol";
+import {SkyLender} from "../../SkyLender.sol";
 import {IStrategyInterface} from "../../interfaces/IStrategyInterface.sol";
 
 // Inherit the events so they can be checked if desired.
@@ -21,14 +23,18 @@ interface IFactory {
     function set_protocol_fee_recipient(address) external;
 }
 
-// This Setup invests into SUSDS
-contract Setup is ExtendedTest, IEvents {
+// This Setup invests into SkyCompounder
+contract LenderSetup is ExtendedTest, IEvents {
     // Contract instancees that we will use repeatedly.
     ERC20 public asset;
     address public DAI;
+    address public USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
+    address public SUSDS = 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD;
     address public GOV;
     IStrategyInterface public strategy;
-    address public vault;
+    IStrategyInterface public compounder;
+    IStrategyInterface public lender;
+    IStrategyInterface public vault;
 
     // Addresses for different roles we will use repeatedly.
     address public user = address(10);
@@ -50,14 +56,29 @@ contract Setup is ExtendedTest, IEvents {
     uint256 public minFuzzAmount = 1e6;
 
     // Default prfot max unlock time is set for 10 days
-    uint256 public profitMaxUnlockTime = 10 days;
-
+    uint256 public profitMaxUnlockTime = 0;
+    uint256 public maxLoss = 5;
     bytes32 public constant BASE_STRATEGY_STORAGE = bytes32(uint256(keccak256("yearn.base.strategy.storage")) - 1);
 
     function setUp() public virtual {
+        address staking = 0x0650CAF159C5A49f711e8169D4336ECB9b950275;
+        vm.startPrank(management);
+        //SkyCompounder:
+        compounder = IStrategyInterface(address(new SkyCompounder(USDS, staking, "SkyCompounder")));
+        compounder.setKeeper(keeper);
+        compounder.setProfitMaxUnlockTime(0);
+        compounder.setMinAmountToSell(0);
+        //SkyLender:
+        lender = IStrategyInterface(address(new SkyLender(USDS, SUSDS, "SkyLender")));
+        lender.setKeeper(keeper);
+        lender.setProfitMaxUnlockTime(0);
+        vm.stopPrank();
+
+        //vault = compounder;
+        vault = lender;
+        //vault = IStrategyInterface(SUSDS);
 
         asset = ERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); //USDC
-        vault = 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD; //SUSDS
         DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F; //DAI
         GOV = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;        
 
@@ -77,7 +98,7 @@ contract Setup is ExtendedTest, IEvents {
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
-            address(new USDSFarmerUSDC(address(asset), vault, "Tokenized Strategy"))
+            address(new USDSFarmerUSDC(address(asset), address(vault), "Tokenized Strategy"))
         );
 
         // set keeper
@@ -92,7 +113,9 @@ contract Setup is ExtendedTest, IEvents {
         _strategy.setProfitLimitRatio(60535);
         _strategy.setDoHealthCheck(false);
         _strategy.setDepositLimit(type(uint).max);
-        _strategy.setMaxLossBPS(0);
+        if (vault == lender) {
+            _strategy.setMaxLossBPS(1);
+        }
         vm.stopPrank();
 
         return address(_strategy);

@@ -16,4 +16,7 @@ interface IStrategyInterface is IStrategy {
     function setDepositLimit(uint256) external;
     function setDoHealthCheck(bool) external;
     function setMaxAcceptableFeeOutPSM(uint256) external;
+    function setProfitMaxUnlockTime(uint256) external;
+    function setMaxLossBPS(uint256) external;
+    function setMinAmountToSell(uint256) external;
 }

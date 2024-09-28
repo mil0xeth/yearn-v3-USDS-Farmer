@@ -4,10 +4,10 @@ pragma solidity 0.8.18;
 import {AprOracleBase} from "@periphery/AprOracle/AprOracleBase.sol";
 
 contract StrategyAprOracle is AprOracleBase {
-    constructor() AprOracleBase("yearn-v3-USDC-PSM-SUSDS", 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52) {}
+    constructor() AprOracleBase("SUSDS-Oracle", 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52) {}
     uint256 internal constant RAY = 1e27;
     uint256 internal constant secondsPerYear = 31536000;
-    PotLike internal constant pot = PotLike(0x197E90f9FAD81970bA7976f33CbD77088E5D7cf7);
+    ISUSDS internal constant SUSDS = ISUSDS(0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD);
     /**
      * @notice Will return the expected Apr of a strategy post a debt change.
      * @dev _delta is a signed integer so that it can also repersent a debt
@@ -28,8 +28,8 @@ contract StrategyAprOracle is AprOracleBase {
         address /*_strategy*/,
         int256 //_delta //no change in APR according to TVL
     ) external view override returns (uint256) {
-        uint256 dsr = pot.dsr(); //in RAY
-        return (rpow(dsr, secondsPerYear, RAY) - RAY) / 1e9 + 1; //1e9 converts RAY to WAD
+        uint256 ssr = SUSDS.ssr(); //in RAY
+        return (rpow(ssr, secondsPerYear, RAY) - RAY) / 1e9 + 1; //1e9 converts RAY to WAD
     }
 
     function rpow(uint x, uint n, uint base) internal pure returns (uint z) {
@@ -57,13 +57,6 @@ contract StrategyAprOracle is AprOracleBase {
     }
 }
 
-interface PotLike {
-    function dsr() external view returns (uint256);
-    function chi() external view returns (uint256);
-    function rho() external view returns (uint256);
-    function drip() external returns (uint256);
-    function join(uint256) external;
-    function exit(uint256) external;
-    function vat() external view returns (address);
-    function pie(address) external view returns (uint256);
+interface ISUSDS{
+    function ssr() external view returns (uint256);
 }
