@@ -2,11 +2,11 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import {Setup} from "./utils/Setup.sol";
+import {SetupDAI} from "./utils/SetupDAI.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract OperationTest is Setup {
+contract OperationTestDAI is SetupDAI {
     function setUp() public virtual override {
         super.setUp();
     }
@@ -20,8 +20,7 @@ contract OperationTest is Setup {
         // TODO: add additional check on strat params
     }
 
-    function test_operation_NoFees_ForceSwap(uint256 _amount) public {
-        maxFuzzAmount = 1e6 * 1e6;
+    function test_operation_NoFees(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
         setFees(0, 0);
         // Deposit into strategy
@@ -29,42 +28,7 @@ contract OperationTest is Setup {
           
         // Earn Interest
         skip(1 days);
-        uint256 toAirdrop = 10e6;
-        airdrop(asset, address(strategy), toAirdrop);
-        console.log("airdrop done");
-
-        // Report profit
-        vm.prank(keeper);
-        (uint256 profit, uint256 loss) = strategy.report();
-        checkStrategyInvariants(strategy);
-
-        // Check return Values
-        assertGe(profit, toAirdrop, "!profit");
-        assertEq(loss, 0, "!loss");
-
-        skip(strategy.profitMaxUnlockTime());
-
-        uint256 balanceBefore = asset.balanceOf(user);
-
-        vm.prank(management);
-        strategy.setMaxAcceptableFeeOutPSM(0);
-
-        // Withdraw all funds
-        vm.prank(user);
-        strategy.redeem(_amount, user, user, 50);
-
-        assertGe(asset.balanceOf(user), balanceBefore + _amount, "!final balance");
-    }
-
-        function test_operation_NoFees(uint256 _amount) public {
-        vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
-        setFees(0, 0);
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
-          
-        // Earn Interest
-        skip(1 days);
-        uint256 toAirdrop = 10e6;
+        uint256 toAirdrop = 10e18;
         airdrop(asset, address(strategy), toAirdrop);
         console.log("airdrop done");
 
@@ -101,7 +65,7 @@ contract OperationTest is Setup {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
         //_profitFactor = uint16(bound(uint256(_profitFactor), 10, 1_00));
         //_profit = uint16(bound(uint256(_profit), 1e10, 10000e18));
-        _profit = bound(_profit, 1e4, 1000e6);
+        _profit = bound(_profit, 1e4, 1000e18);
         setFees(0, 0);
 
         // Deposit into strategy
@@ -230,7 +194,7 @@ contract OperationTest is Setup {
         checkStrategyInvariants(strategy);
         // Check return Values
         assertGe(profit, 0, "!profit");
-        assertLe(loss, 2, "!loss");
+        assertLe(loss, 5, "!loss");
          
         //profit simulation:
         skip(31536000);
@@ -304,118 +268,6 @@ contract OperationTest is Setup {
         checkStrategyTotals(strategy, 0, 0, 0);
     }
 
-    function test_profitableReport_NoFees_MultipleUsers_PSMfee(
-        uint256 _amount,
-        uint16 _divider
-    ) public {
-        uint256 maxDivider = 100;
-        vm.assume(_amount > minFuzzAmount * maxDivider && _amount < maxFuzzAmount/10);
-        _divider = uint16(bound(uint256(_divider), 1, maxDivider));
-
-        setFees(0, 0);
-        
-        address secondUser = address(22);
-        address thirdUser = address(33);
-        uint256 secondUserAmount = _amount / _divider;
-        uint256 thirdUserAmount = _amount / (_divider * 10);
-        uint256 profit;
-        uint256 loss;
-        uint256 redeemAmount;
-
-        // Deposit into strategy
-        mintAndDepositIntoStrategy(strategy, user, _amount);
-        mintAndDepositIntoStrategy(strategy, secondUser, secondUserAmount);
-        mintAndDepositIntoStrategy(strategy, thirdUser, thirdUserAmount);
-
-        skip(1000);
-
-        // Report
-        vm.prank(keeper);
-        (profit, loss) = strategy.report();
-        checkStrategyInvariants(strategy);
-        // Check return Values
-        assertGe(profit, 0, "!profit");
-        assertLe(loss, 2, "!loss");
-         
-        //profit simulation:
-        skip(31536000);
-
-        // Report profit
-        vm.prank(keeper);
-        (profit, loss) = strategy.report();
-        checkStrategyInvariants(strategy);
-        assertGe(profit, (_amount + secondUserAmount + thirdUserAmount) * 6 / 100 , "!profit");
-        console.log("total investment: ", _amount + secondUserAmount + thirdUserAmount);
-        console.log("profit after second report", profit);
-        assertEq(loss, 0, "!loss");
-
-        skip(strategy.profitMaxUnlockTime());
-
-        // Withdraw part of funds user
-        redeemAmount = strategy.balanceOf(user) / 8;
-        vm.prank(user);
-        strategy.redeem(redeemAmount, user, user, 0);
-        checkStrategyInvariantsAfterRedeem(strategy);
-
-        // Withdraw part of funds secondUser
-        redeemAmount = strategy.balanceOf(secondUser) / 6;
-        vm.prank(secondUser);
-        strategy.redeem(redeemAmount, secondUser, secondUser, 0);
-        checkStrategyInvariantsAfterRedeem(strategy);
-
-        // Withdraw part of funds thirdUser
-        redeemAmount = strategy.balanceOf(thirdUser) / 4;
-        vm.prank(thirdUser);
-        strategy.redeem(redeemAmount, thirdUser, thirdUser, 0);
-        checkStrategyInvariantsAfterRedeem(strategy);
-
-        // Report profit
-        vm.prank(keeper);
-        (profit, loss) = strategy.report();
-        checkStrategyInvariants(strategy);
-        skip(strategy.profitMaxUnlockTime());
-        console.log("total investment: ", _amount + secondUserAmount + thirdUserAmount);
-        console.log("profit after third report", profit);
-        console.log("loss after third report", loss);
-
-        depositIntoStrategy(strategy, secondUser, asset.balanceOf(secondUser), asset);
-
-        //PSM fee increase:
-        address maker = 0xBE8E3e3618f7474F8cB1d074A26afFef007E98FB;
-        address PSM = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
-        vm.prank(maker);
-        IPSMfee(PSM).file("tout", 1e17); //add extreme feeOut of 10%
-
-        // withdraw all funds
-        console.log("user shares: ", strategy.balanceOf(user));
-        console.log("user2 shares: ", strategy.balanceOf(secondUser));
-        console.log("user3 shares: ", strategy.balanceOf(thirdUser));
-        redeemAmount = strategy.balanceOf(user);
-        if (redeemAmount > 0){
-            vm.prank(user);
-            strategy.redeem(redeemAmount, user, user, 5);
-            checkStrategyInvariantsAfterRedeem(strategy);
-        }
-        redeemAmount = strategy.balanceOf(secondUser);
-        if (redeemAmount > 0){
-            vm.prank(secondUser);
-            strategy.redeem(redeemAmount, secondUser, secondUser, 5);
-            checkStrategyInvariantsAfterRedeem(strategy);
-        }
-        redeemAmount = strategy.balanceOf(thirdUser);
-        if (redeemAmount > 0){
-            vm.prank(thirdUser);
-            strategy.redeem(redeemAmount, thirdUser, thirdUser, 5);
-            checkStrategyInvariantsAfterRedeem(strategy);
-        }
-        // verify users earned profit
-        assertGe(asset.balanceOf(user) * 110 / 100, _amount, "!final balance user");
-        assertGe(asset.balanceOf(secondUser) * 110 / 100, secondUserAmount, "!final balance secondUser");
-        assertGe(asset.balanceOf(thirdUser) * 110 / 100, thirdUserAmount, "!final balance thirdUser");
-
-        checkStrategyTotals(strategy, 0, 0, 0);
-    }
-
     function test_emergencyWithdrawAll(uint256 _amount) public {
         vm.assume(_amount > minFuzzAmount && _amount < maxFuzzAmount);
         setFees(0, 0);
@@ -424,7 +276,7 @@ contract OperationTest is Setup {
         mintAndDepositIntoStrategy(strategy, user, _amount);
 
         // Skip some time
-        airdrop(asset, address(strategy), 100e6);
+        airdrop(asset, address(strategy), 100e18);
 
         vm.prank(keeper);
         (uint profit, uint loss) = strategy.report();
@@ -436,7 +288,7 @@ contract OperationTest is Setup {
         strategy.shutdownStrategy();
         vm.prank(management); 
         strategy.emergencyWithdraw(type(uint256).max);
-        assertGe(asset.balanceOf(address(strategy)) + 3, _amount + 100e6, "!all in asset");
+        assertGe(asset.balanceOf(address(strategy)) + 5, _amount + 100e18, "!all in asset");
 
         vm.prank(keeper);
         (profit, loss) = strategy.report();

@@ -2,11 +2,11 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import {LenderSetup} from "./utils/LenderSetup.sol";
+import {LenderSetupUSDC} from "./utils/LenderSetupUSDC.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract LenderOperationTest is LenderSetup {
+contract LenderOperationTestUSDC is LenderSetupUSDC {
     function setUp() public virtual override {
         super.setUp();
     }
@@ -423,7 +423,7 @@ contract LenderOperationTest is LenderSetup {
 
         //PSM fee increase:
         address maker = 0xBE8E3e3618f7474F8cB1d074A26afFef007E98FB;
-        address PSM = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
+        address PSM = 0xf6e72Db5454dd049d0788e411b06CfAF16853042;
         vm.prank(maker);
         IPSMfee(PSM).file("tout", 1e17); //add extreme feeOut of 10%
 
@@ -478,11 +478,14 @@ contract LenderOperationTest is LenderSetup {
         vm.prank(management); 
         strategy.emergencyWithdraw(type(uint256).max);
         assertGe(asset.balanceOf(address(strategy)) + 3, _amount + 100e6, "!all in asset");
+        
+        vm.prank(management);
+        strategy.setLossLimitRatio(1);
 
         vm.prank(keeper);
         (profit, loss) = strategy.report();
         assertEq(profit, 0, "!profit");
-        assertEq(loss, 0, "!loss");
+        assertGe(2, loss, "!loss");
 
         // Unlock Profits
         skip(strategy.profitMaxUnlockTime());

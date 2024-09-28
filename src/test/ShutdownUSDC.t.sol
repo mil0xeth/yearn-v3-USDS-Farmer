@@ -1,9 +1,9 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import {Setup} from "./utils/Setup.sol";
+import {SetupUSDC} from "./utils/SetupUSDC.sol";
 
-contract ShutdownTest is Setup {
+contract ShutdownTestUSDC is SetupUSDC {
     function setUp() public override {
         super.setUp();
     }
@@ -13,8 +13,6 @@ contract ShutdownTest is Setup {
 
         // Deposit into strategy
         mintAndDepositIntoStrategy(strategy, user, _amount);
-
-          
 
         // Earn Interest
         skip(1 days);

@@ -13,6 +13,7 @@ interface IStrategyInterface is IStrategy {
     function balanceSUSDS() external view returns (uint256);
 
     function setProfitLimitRatio(uint256) external;
+    function setLossLimitRatio(uint256) external;
     function setDepositLimit(uint256) external;
     function setDoHealthCheck(bool) external;
     function setMaxAcceptableFeeOutPSM(uint256) external;

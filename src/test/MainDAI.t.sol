@@ -2,10 +2,10 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import {Setup} from "./utils/Setup.sol";
+import {SetupDAI} from "./utils/SetupDAI.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract MainTest is Setup {
+contract MainTestDAI is SetupDAI {
 
     function setUp() public override {
         super.setUp();
@@ -24,7 +24,7 @@ contract MainTest is Setup {
     function test_main() public {
         setFees(0, 0);
         //init
-        uint256 _amount = 1000e6;
+        uint256 _amount = 1000e18;
         uint256 profit;
         uint256 loss;
         console.log("asset: ", asset.symbol());

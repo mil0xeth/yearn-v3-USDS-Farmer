@@ -10,25 +10,31 @@ import {IVault} from "./interfaces/IVault.sol";
 
 /// @title yearn-v3-USDS-Farmer-USDC
 /// @author mil0x
-/// @notice yearn v3 Strategy that trades USDC to SUSDS to farm 4626 vault.
+/// @notice yearn v3 Strategy that trades USDC to USDS to farm 4626 vault.
 contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     using SafeERC20 for ERC20;
 
+    ///@notice Limit for deposits into the strategy to stop strategy TVL to ever grow too large in comparison to the PSM liquidity. In 1e6.
     uint256 public depositLimit; //in 1e6
-    uint256 public maxAcceptableFeeOutPSM; //in WAD
-    uint256 public swapSlippageBPS; //in BPS
+
+    ///@notice The 4626 vault for USDS asset to farm.
+    address public immutable vault;
+
+    ///@notice Maximum acceptable loss from the investment vault in basis points (default = 0).
     uint256 public maxLossBPS;
 
-    address public immutable vault;
+    ///@notice Maximum acceptable fee out (DAI to USDC) in WAD units before we use UniswapV3 to swap instead of the PSM. (Default = 5e14 + 1)
+    uint256 public maxAcceptableFeeOutPSM; //in WAD
+
+    ///@notice Maximum acceptable swap slippage in case we are swapping through UniswapV3 instead of through PSM. (Depends also on maxAcceptableFeeOutPSM to initiate swap)
+    uint256 public swapSlippageBPS; //in BPS
     
     address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address private constant USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
-
     address private constant PSM = 0xf6e72Db5454dd049d0788e411b06CfAF16853042; //LITE-PSM
     address private constant DAI_USDS_EXCHANGER = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
     address private constant pocket = 0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341;
     address private constant pool = 0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168;
-    
     uint256 private constant SCALER = 1e12;
     uint256 private constant WAD = 1e18;
     uint256 private constant ASSET_DUST = 100;
@@ -61,7 +67,7 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
         if (IPSM(PSM).tin() == 0 && IPSM(PSM).tout() == 0) { //only allow deposits if PSM fee in and fee out are 0
             uint256 totalDeposits = TokenizedStrategy.totalAssets();
             if (depositLimit > totalDeposits) {
-                return depositLimit - totalDeposits;
+                return _min(_min(_balancePSM(), IVault(vault).maxDeposit(address(this))) / SCALER, depositLimit - totalDeposits); //minimum of DAI available in PSM, vault maximum deposit, and deposit limit 
             } else {
                 return 0;
             }
@@ -71,6 +77,8 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     }
 
     function _deployFunds(uint256 _amount) internal override {
+        _amount = _min(_amount, _balancePSM() / SCALER);
+        if (_amount == 0) return;
         IPSM(PSM).sellGem(address(this), _amount); // USDC --> DAI 1:1 through PSM (in USDC amount)
         IExchange(DAI_USDS_EXCHANGER).daiToUsds(address(this), _balanceDAI()); //DAI --> USDS 1:1
         IVault(vault).deposit(_balanceUSDS(), address(this)); //USDS --> vault
@@ -78,14 +86,16 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
         if (IPSM(PSM).tout() >= maxAcceptableFeeOutPSM) {
-            return _balanceAsset() + asset.balanceOf(pool);
+            return _balanceAsset() + _min(asset.balanceOf(pool), IVault(vault).maxWithdraw(address(this)) / SCALER); //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
         } else {
-            return _balanceAsset() + asset.balanceOf(pocket);
+            return _balanceAsset() + _min(asset.balanceOf(pocket), IVault(vault).maxWithdraw(address(this)) / SCALER); //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
         }
     }
 
     function _freeFunds(uint256 _amount) internal override {
         uint256 amountUSDS = _amount * SCALER;
+        amountUSDS = _min(amountUSDS, IVault(vault).maxWithdraw(address(this)));
+        if (amountUSDS == 0) return;
         if (maxLossBPS == 0) {
             IVault(vault).withdraw(amountUSDS, address(this), address(this)); //vault --> USDS 
         } else {
@@ -110,6 +120,14 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
             }
             _totalAssets = IVault(vault).convertToAssets(_balanceVault()) / SCALER;
         }
+    }
+
+    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a < b ? a : b;
+    }
+
+    function _balancePSM() internal view returns (uint256) {
+        return ERC20(DAI).balanceOf(PSM);
     }
 
     function _balanceAsset() internal view returns (uint256) {
@@ -173,6 +191,6 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
         if (_amount > currentBalance) {
             _amount = currentBalance;
         }
-        _freeFunds(IVault(vault).convertToAssets(_amount) / SCALER - 2);
+        _freeFunds(IVault(vault).convertToAssets(_amount) / SCALER);
     }
 }

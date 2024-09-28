@@ -8,6 +8,9 @@ import {IStaking} from "./interfaces/ISky.sol";
 import {IUniswapV2Router02} from "@periphery/interfaces/Uniswap/V2/IUniswapV2Router02.sol";
 import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 
+/// @title yearn-v3-SkyCompounder
+/// @author mil0x
+/// @notice yearn v3 Strategy that autocompounds staking rewards.
 contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     using SafeERC20 for ERC20;
     
@@ -157,7 +160,7 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     }
 
     /**
-     * @notice Set the base token between asset, USDS, DAI, USDC, or WETH.
+     * @notice Set the base token between asset, USDS, DAI, USDC, or WETH. (Default = USDS)
      * @param _base address of either asset, USDS, DAI, USDC, or WETH.
      * @dev This can be used for management to change which pool
      * to trade reward tokens.
@@ -179,7 +182,7 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     }
 
     /**
-     * @notice Set the referral.
+     * @notice Set the referral code for staking.
      * @param _referral uint16 referral code
      */
     function setReferral(uint16 _referral) external onlyManagement {

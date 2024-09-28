@@ -4,12 +4,17 @@ pragma solidity 0.8.18;
 import {Base4626Compounder, Math, ERC20, SafeERC20} from "@periphery/Bases/4626Compounder/Base4626Compounder.sol";
 import {IReferral} from "./interfaces/ISky.sol";
 
+/// @title yearn-v3-SkyLender
+/// @author mil0x
+/// @notice yearn v3 Strategy that lends USDS to sUSDS.
 contract SkyLender is Base4626Compounder {
     using SafeERC20 for ERC20;
 
     ///@notice Bool if the strategy is open for any depositors. Default = true.
     bool public open = true;
-    mapping(address => bool) public allowed; //mapping of addresses allowed to deposit.
+
+    ///@notice Mapping of addresses that are allowed to deposit.
+    mapping(address => bool) public allowed;
 
     ///@notice yearn's referral code
     uint16 public referral = 13425;
@@ -22,20 +27,11 @@ contract SkyLender is Base4626Compounder {
 
     function _deployFunds(uint256 _amount) internal virtual override {
         IReferral(address(vault)).deposit(_amount, address(this), referral);
-        _stake();
     }
 
     function _freeFunds(uint256 _amount) internal override {
         uint256 shares = vault.previewWithdraw(_amount);
-
-        uint256 vaultBalance = balanceOfVault();
-        if (shares > vaultBalance) {
-            unchecked {
-                _unStake(shares - vaultBalance);
-            }
-            shares = Math.min(shares, balanceOfVault());
-        }
-
+        shares = Math.min(shares, balanceOfVault());
         vault.redeem(shares, address(this), address(this));
     }
 
@@ -69,7 +65,7 @@ contract SkyLender is Base4626Compounder {
     }
 
     /**
-     * @notice Set the referral.
+     * @notice Set the referral code for depositing.
      * @param _referral uint16 referral code
      */
     function setReferral(uint16 _referral) external onlyManagement {

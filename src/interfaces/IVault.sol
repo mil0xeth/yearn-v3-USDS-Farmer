@@ -10,4 +10,8 @@ interface IVault {
     function redeem(uint256 shares, address receiver, address owner, uint256 maxLoss) external returns (uint256 assets);
     function convertToAssets(uint256 shares) external view returns (uint256);
     function convertToShares(uint256 assets) external view returns (uint256);
+    function maxDeposit(address) external view returns (uint256);
+    function maxRedeem(address) external view returns (uint256);
+    function maxWithdraw(address) external view returns (uint256);
+    function previewWithdraw(uint256) external view returns (uint256);
 }

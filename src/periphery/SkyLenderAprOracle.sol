@@ -3,26 +3,13 @@ pragma solidity 0.8.18;
 
 import {AprOracleBase} from "@periphery/AprOracle/AprOracleBase.sol";
 
-contract StrategyAprOracle is AprOracleBase {
-    constructor() AprOracleBase("SUSDS-Oracle", 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52) {}
+contract SkyLenderAprOracle is AprOracleBase {
+    constructor() AprOracleBase("SkyLender Universal APR Oracle", 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52) {}
     uint256 internal constant RAY = 1e27;
     uint256 internal constant secondsPerYear = 31536000;
     ISUSDS internal constant SUSDS = ISUSDS(0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD);
     /**
-     * @notice Will return the expected Apr of a strategy post a debt change.
-     * @dev _delta is a signed integer so that it can also repersent a debt
-     * decrease.
-     *
-     * This should return the annual expected return at the current timestamp
-     * repersented as 1e18.
-     *
-     *      ie. 10% == 1e17
-     *
-     * _delta will be == 0 to get the current apr.
-     *
-     * This will potentially be called during non-view functions so gas
-     * effeciency should be taken into account.
-     *
+     * @notice Returns the Sky Savings Rate APR. Both parameters do not change the APR.
      */
     function aprAfterDebtChange(
         address /*_strategy*/,

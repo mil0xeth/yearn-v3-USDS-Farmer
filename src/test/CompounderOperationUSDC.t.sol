@@ -2,11 +2,11 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import {CompounderSetup} from "./utils/CompounderSetup.sol";
+import {CompounderSetupUSDC} from "./utils/CompounderSetupUSDC.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract CompounderOperationTest is CompounderSetup {
+contract CompounderOperationTestUSDC is CompounderSetupUSDC {
     function setUp() public virtual override {
         super.setUp();
     }
@@ -423,7 +423,7 @@ contract CompounderOperationTest is CompounderSetup {
 
         //PSM fee increase:
         address maker = 0xBE8E3e3618f7474F8cB1d074A26afFef007E98FB;
-        address PSM = 0x89B78CfA322F6C5dE0aBcEecab66Aee45393cC5A;
+        address PSM = 0xf6e72Db5454dd049d0788e411b06CfAF16853042;
         vm.prank(maker);
         IPSMfee(PSM).file("tout", 1e17); //add extreme feeOut of 10%
 
