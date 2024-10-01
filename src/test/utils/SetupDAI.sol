@@ -76,7 +76,7 @@ contract SetupDAI is ExtendedTest, IEvents {
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
-            address(new USDSFarmerDAI(address(asset), vault, "Tokenized Strategy"))
+            address(new USDSFarmerDAI(vault, "Tokenized Strategy"))
         );
 
         // set keeper

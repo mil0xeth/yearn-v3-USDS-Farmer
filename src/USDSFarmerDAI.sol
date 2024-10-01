@@ -19,17 +19,17 @@ contract USDSFarmerDAI is BaseHealthCheck {
     ///@notice Maximum acceptable loss from the investment vault in basis points (default = 0).
     uint256 public maxLossBPS;
     
+    address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address private constant USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
     address private constant DAI_USDS_EXCHANGER = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
-    uint256 private constant WAD = 1e18;
     uint256 private constant ASSET_DUST = 100;
 
-    constructor(address _asset, address _vault, string memory _name) BaseHealthCheck(_asset, _name) {
+    constructor(address _vault, string memory _name) BaseHealthCheck(DAI, _name) {
         require(IVault(_vault).asset() == USDS, "!asset");
         vault = _vault;
 
         //approvals:
-        ERC20(_asset).forceApprove(DAI_USDS_EXCHANGER, type(uint).max); //approve the PSM
+        ERC20(DAI).forceApprove(DAI_USDS_EXCHANGER, type(uint).max); //approve the PSM
         ERC20(USDS).forceApprove(DAI_USDS_EXCHANGER, type(uint).max); //approve the PSM
         ERC20(USDS).forceApprove(vault, type(uint).max);
     }
@@ -48,7 +48,7 @@ contract USDSFarmerDAI is BaseHealthCheck {
     }
 
     function availableWithdrawLimit(address) public view virtual override returns (uint256) {
-        return _balanceAsset() + IVault(vault).maxWithdraw(address(this)) + 2; //2 wei rounding errors are possible due to investment vault
+        return _balanceAsset() + IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) + 2; //2 wei rounding errors are possible due to investment vault
     }
 
     function _freeFunds(uint256 _amount) internal override {
@@ -103,7 +103,10 @@ contract USDSFarmerDAI is BaseHealthCheck {
                 EMERGENCY
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice In case of an emergencyWithdraw with fees, management needs to call a report right after (ideally bundled).
+    /**
+     * @notice Withdraw funds from the vault into the strategy in an emergency.
+     * @param _amount the amount of vault shares to emergencyWithdraw
+     */
     function _emergencyWithdraw(uint256 _amount) internal override {
         uint256 currentBalance = _balanceVault();
         if (_amount > currentBalance) {

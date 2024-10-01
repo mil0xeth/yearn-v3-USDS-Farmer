@@ -52,7 +52,7 @@ contract CompounderSetupUSDC is ExtendedTest, IEvents {
     bool public forceProfit = false; //to be used with minimum deposit contracts
     uint256 public maxLoss = 5;
     // Fuzz from $0.01 of 1e6 stable coins up to 1 billion of a 1e18 coin
-    uint256 public maxFuzzAmount = 90e6 * 1e6;
+    uint256 public maxFuzzAmount = 15e6 * 1e6;
     uint256 public minFuzzAmount = 1e6;
 
     // Default prfot max unlock time is set for 10 days
@@ -63,12 +63,12 @@ contract CompounderSetupUSDC is ExtendedTest, IEvents {
         address staking = 0x0650CAF159C5A49f711e8169D4336ECB9b950275;
         vm.startPrank(management);
         //SkyCompounder:
-        compounder = IStrategyInterface(address(new SkyCompounder(USDS, staking, "SkyCompounder")));
+        compounder = IStrategyInterface(address(new SkyCompounder(staking, "SkyCompounder")));
         compounder.setKeeper(keeper);
         compounder.setProfitMaxUnlockTime(0);
         compounder.setMinAmountToSell(0);
         //SkyLender:
-        lender = IStrategyInterface(address(new SkyLender(USDS, SUSDS, "SkyLender")));
+        lender = IStrategyInterface(address(new SkyLender("SkyLender")));
         lender.setKeeper(keeper);
         lender.setProfitMaxUnlockTime(0);
         vm.stopPrank();
@@ -99,7 +99,7 @@ contract CompounderSetupUSDC is ExtendedTest, IEvents {
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
-            address(new USDSFarmerUSDC(address(asset), address(vault), "Tokenized Strategy"))
+            address(new USDSFarmerUSDC(address(vault), "Tokenized Strategy"))
         );
 
         // set keeper

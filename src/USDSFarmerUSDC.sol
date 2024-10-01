@@ -29,6 +29,7 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     ///@notice Maximum acceptable swap slippage in case we are swapping through UniswapV3 instead of through PSM. (Depends also on maxAcceptableFeeOutPSM to initiate swap)
     uint256 public swapSlippageBPS; //in BPS
     
+    address private constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address private constant USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
     address private constant PSM = 0xf6e72Db5454dd049d0788e411b06CfAF16853042; //LITE-PSM
@@ -39,7 +40,7 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     uint256 private constant WAD = 1e18;
     uint256 private constant ASSET_DUST = 100;
 
-    constructor(address _asset, address _vault, string memory _name) BaseHealthCheck(_asset, _name) {
+    constructor(address _vault, string memory _name) BaseHealthCheck(USDC, _name) {
         require(IVault(_vault).asset() == USDS, "!asset");
         vault = _vault;
         depositLimit = 100e6 * 1e6; //100M USDC deposit limit to start with
@@ -48,11 +49,11 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
         swapSlippageBPS = 50; //0.5% expressed in BPS. Allow a slippage of 0.5% for swapping through uniswap.
 
         // Set uni swapper values
-        base = _asset;
-        _setUniFees(_asset, DAI, 100);
+        base = USDC;
+        _setUniFees(USDC, DAI, 100);
 
         //approvals:
-        ERC20(_asset).forceApprove(PSM, type(uint).max); //approve the PSM
+        ERC20(USDC).forceApprove(PSM, type(uint).max); //approve the PSM
         ERC20(DAI).forceApprove(PSM, type(uint).max); //approve the PSM
         ERC20(DAI).forceApprove(DAI_USDS_EXCHANGER, type(uint).max); //approve the PSM
         ERC20(USDS).forceApprove(DAI_USDS_EXCHANGER, type(uint).max); //approve the PSM
@@ -185,7 +186,10 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
                 EMERGENCY
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice In case of an emergencyWithdraw with fees, management needs to call a report right after (ideally bundled).
+    /**
+     * @notice Withdraw funds from the vault into the strategy in an emergency. In case of an emergencyWithdraw with fees, management needs to call a report right after (ideally bundled). 
+     * @param _amount the amount of vault shares to emergencyWithdraw
+     */
     function _emergencyWithdraw(uint256 _amount) internal override {
         uint256 currentBalance = _balanceVault();
         if (_amount > currentBalance) {

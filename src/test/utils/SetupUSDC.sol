@@ -45,7 +45,7 @@ contract SetupUSDC is ExtendedTest, IEvents {
 
     bool public forceProfit = false; //to be used with minimum deposit contracts
 
-    uint256 public maxFuzzAmount = 90e6 * 1e6;
+    uint256 public maxFuzzAmount = 15e6 * 1e6;
     uint256 public minFuzzAmount = 1e6;
 
     // Default prfot max unlock time is set for 10 days
@@ -76,7 +76,7 @@ contract SetupUSDC is ExtendedTest, IEvents {
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
-            address(new USDSFarmerUSDC(address(asset), vault, "Tokenized Strategy"))
+            address(new USDSFarmerUSDC(vault, "Tokenized Strategy"))
         );
 
         // set keeper

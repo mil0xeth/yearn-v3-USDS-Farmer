@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.18;
 
-import {BaseStrategy, ERC20} from "@tokenized-strategy/BaseStrategy.sol";
+import {BaseHealthCheck, ERC20} from "@periphery/Bases/HealthCheck/BaseHealthCheck.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IStaking} from "./interfaces/ISky.sol";
@@ -11,7 +11,7 @@ import {UniswapV3Swapper} from "@periphery/swappers/UniswapV3Swapper.sol";
 /// @title yearn-v3-SkyCompounder
 /// @author mil0x
 /// @notice yearn v3 Strategy that autocompounds staking rewards.
-contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
+contract SkyCompounder is BaseHealthCheck, UniswapV3Swapper {
     using SafeERC20 for ERC20;
     
     ///@notice Represents if we should claim rewards. Default to true.
@@ -29,7 +29,7 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     address public immutable staking;
     address public immutable rewardsToken;
  
-    address private uniV2router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // Uniswap V2 router on Mainnet
+    address private constant uniV2router = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; // Uniswap V2 router on Mainnet
 
     // choices for base
     address private constant USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
@@ -38,13 +38,13 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
 
     uint256 private constant ASSET_DUST = 100;
-    uint256 private constant WAD = 1e18;
 
-    constructor(address _asset, address _staking, string memory _name) BaseStrategy(_asset, _name) {
+    constructor(address _staking, string memory _name) BaseHealthCheck(USDS, _name) {
         require(IStaking(_staking).paused() == false, "paused");
-        require(_asset == IStaking(_staking).stakingToken(), "!stakingToken");
+        require(USDS == IStaking(_staking).stakingToken(), "!stakingToken");
         rewardsToken = IStaking(_staking).rewardsToken();
-        ERC20(_asset).forceApprove(_staking, type(uint256).max);
+        ERC20(USDS).forceApprove(_staking, type(uint256).max);
+        ERC20(rewardsToken).forceApprove(uniV2router, type(uint256).max);
         staking = _staking;
         base = USDS;
         minAmountToSell = 50e18; // Set the min amount for the swapper to sell
@@ -88,20 +88,20 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
 
     function _uniV2swapFrom(address _from, address _to, uint256 _amountIn, uint256 _minAmountOut) internal {
         if (_amountIn > minAmountToSell) {
-            ERC20(_from).forceApprove(uniV2router, type(uint256).max);
             IUniswapV2Router02(uniV2router).swapExactTokensForTokens(_amountIn, _minAmountOut, _getTokenOutPath(_from, _to), address(this), block.timestamp);
         }
     }
 
     function _getTokenOutPath(address _tokenIn, address _tokenOut) internal view virtual returns (address[] memory _path) {
-        bool isBase = _tokenIn == base || _tokenOut == base;
+        address _base = base;
+        bool isBase = _tokenIn == _base || _tokenOut == _base;
         _path = new address[](isBase ? 2 : 3);
         _path[0] = _tokenIn;
 
         if (isBase) {
             _path[1] = _tokenOut;
         } else {
-            _path[1] = base;
+            _path[1] = _base;
             _path[2] = _tokenOut;
         }
     }
@@ -160,15 +160,13 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     }
 
     /**
-     * @notice Set the base token between asset, USDS, DAI, USDC, or WETH. (Default = USDS)
-     * @param _base address of either asset, USDS, DAI, USDC, or WETH.
+     * @notice Set the base token between USDS, DAI, USDC, or WETH. (Default = USDS)
+     * @param _base address of either USDS, DAI, USDC, or WETH.
      * @dev This can be used for management to change which pool
      * to trade reward tokens.
      */
     function setBase(address _base) external onlyManagement {
-        if (_base == address(asset)) {
-            base = address(asset);
-        } else if (_base == USDS) {
+        if (_base == USDS) {
             base = USDS;
         } else if (_base == DAI) {
             base = DAI;
@@ -190,7 +188,7 @@ contract SkyCompounder is BaseStrategy, UniswapV3Swapper {
     }
 
     function _emergencyWithdraw(uint256 _amount) internal override {
-        _amount = _min(_amount, TokenizedStrategy.totalAssets());
+        _amount = _min(_amount, balanceOfStake());
         _freeFunds(_amount);
     }
 

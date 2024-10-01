@@ -10,9 +10,6 @@ import {IReferral} from "./interfaces/ISky.sol";
 contract SkyLender is Base4626Compounder {
     using SafeERC20 for ERC20;
 
-    ///@notice Bool if the strategy is open for any depositors. Default = true.
-    bool public open = true;
-
     ///@notice Mapping of addresses that are allowed to deposit.
     mapping(address => bool) public allowed;
 
@@ -22,22 +19,19 @@ contract SkyLender is Base4626Compounder {
     ///@notice yearn governance
     address public constant GOV = 0xFEB4acf3df3cDEA7399794D0869ef76A6EfAff52;
 
-    constructor(address _asset, address _vault, string memory _name) Base4626Compounder(_asset, _name, _vault) {
+    address private constant USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
+    address private constant SUSDS = 0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD;
+
+    constructor(string memory _name) Base4626Compounder(USDS, _name, SUSDS) {
     }
 
     function _deployFunds(uint256 _amount) internal virtual override {
         IReferral(address(vault)).deposit(_amount, address(this), referral);
     }
 
-    function _freeFunds(uint256 _amount) internal override {
-        uint256 shares = vault.previewWithdraw(_amount);
-        shares = Math.min(shares, balanceOfVault());
-        vault.redeem(shares, address(this), address(this));
-    }
-
     function availableDepositLimit(address _owner) public view override returns (uint256) {
-        // If the owner is whitelisted or the strategy is open.
-        if (open || allowed[_owner]) {
+        // If the owner is whitelisted, allow deposits.
+        if (allowed[_owner]) {
             return type(uint256).max;
         } else {
             return 0;
@@ -45,22 +39,11 @@ contract SkyLender is Base4626Compounder {
     }
 
     /**
-     * @notice Change if anyone can deposit in or only white listed addresses
-     * @param _open the bool deciding if anyone can deposit (true) or only whitelisted addresses (false)
-     */
-    function setOpen(bool _open) external onlyManagement {
-        open = _open;
-    }
-
-    /**
      * @notice Set or update an addresses whitelist status.
      * @param _address the address for which to change the whitelist status
      * @param _allowed the bool to set as whitelisted (true) or not (false)
      */
-    function setAllowed(
-        address _address,
-        bool _allowed
-    ) external onlyManagement {
+    function setAllowed(address _address, bool _allowed) external onlyManagement {
         allowed[_address] = _allowed;
     }
 

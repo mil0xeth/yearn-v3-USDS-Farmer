@@ -62,12 +62,12 @@ contract LenderSetupDAI is ExtendedTest, IEvents {
         address staking = 0x0650CAF159C5A49f711e8169D4336ECB9b950275;
         vm.startPrank(management);
         //SkyCompounder:
-        compounder = IStrategyInterface(address(new SkyCompounder(USDS, staking, "SkyCompounder")));
+        compounder = IStrategyInterface(address(new SkyCompounder(staking, "SkyCompounder")));
         compounder.setKeeper(keeper);
         compounder.setProfitMaxUnlockTime(0);
         compounder.setMinAmountToSell(0);
         //SkyLender:
-        lender = IStrategyInterface(address(new SkyLender(USDS, SUSDS, "SkyLender")));
+        lender = IStrategyInterface(address(new SkyLender("SkyLender")));
         lender.setKeeper(keeper);
         lender.setProfitMaxUnlockTime(0);
         vm.stopPrank();
@@ -83,6 +83,8 @@ contract LenderSetupDAI is ExtendedTest, IEvents {
         // Set decimals
         // Deploy strategy and set variables
         strategy = IStrategyInterface(setUpStrategy());
+        vm.prank(management);
+        lender.setAllowed(address(strategy), true);
         factory = strategy.FACTORY();
         // label all the used addresses for traces
         vm.label(keeper, "keeper");
@@ -96,7 +98,7 @@ contract LenderSetupDAI is ExtendedTest, IEvents {
     function setUpStrategy() public returns (address) {
         // we save the strategy as a IStrategyInterface to give it the needed interface
         IStrategyInterface _strategy = IStrategyInterface(
-            address(new USDSFarmerDAI(address(asset), address(vault), "Tokenized Strategy"))
+            address(new USDSFarmerDAI(address(vault), "Tokenized Strategy"))
         );
 
         // set keeper

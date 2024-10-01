@@ -20,4 +20,5 @@ interface IStrategyInterface is IStrategy {
     function setProfitMaxUnlockTime(uint256) external;
     function setMaxLossBPS(uint256) external;
     function setMinAmountToSell(uint256) external;
+    function setAllowed(address, bool) external;
 }
