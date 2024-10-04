@@ -278,6 +278,9 @@ contract CompounderOperationTestDAI is CompounderSetupDAI {
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         redeemAmount = strategy.balanceOf(thirdUser);
+        uint256 maxRedeem = strategy.maxRedeem(thirdUser);
+        assertGe(redeemAmount + 5, maxRedeem, "redeemAmount!!");
+        redeemAmount = maxRedeem;
         if (redeemAmount > 0){
             vm.prank(thirdUser);
             strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
@@ -288,7 +291,7 @@ contract CompounderOperationTestDAI is CompounderSetupDAI {
         assertGe(asset.balanceOf(secondUser) * 110 / 100, secondUserAmount, "!final balance secondUser");
         assertGe(asset.balanceOf(thirdUser) * 110 / 100, thirdUserAmount, "!final balance thirdUser");
 
-        checkStrategyTotals(strategy, 0, 0, 0);
+        checkStrategyTotalsSpecial(strategy, 0, 0, 0);
     }
 
     function test_emergencyWithdrawAll(uint256 _amount) public {

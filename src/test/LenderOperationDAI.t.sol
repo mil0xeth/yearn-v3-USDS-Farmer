@@ -160,18 +160,23 @@ contract LenderOperationTestDAI is LenderSetupDAI {
 
         // Get the expected fee
         uint256 expectedShares = (profit * 1_000) / MAX_BPS;
-
         assertEq(strategy.balanceOf(performanceFeeRecipient), expectedShares, "shares not same");
 
         uint256 balanceBefore = asset.balanceOf(user);
         
         // Withdraw all funds
+        uint256 maxRedeem = strategy.maxRedeem(user);
+        assertGe(_amount + 5, maxRedeem, "maxRedeem!!");
+        _amount = maxRedeem;
         vm.prank(user);
         strategy.redeem(_amount, user, user, maxLoss);
 
         // TODO: Adjust if there are fees
         assertGe(asset.balanceOf(user), (balanceBefore + _amount + toAirdrop) * (MAX_BPS - 10_00 ) / MAX_BPS, "!final balance");
 
+        maxRedeem = strategy.maxRedeem(performanceFeeRecipient);
+        assertGe(expectedShares + 5, maxRedeem, "expectedShares!!");
+        expectedShares = maxRedeem;
         vm.prank(performanceFeeRecipient);
         strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, maxLoss);
 
@@ -285,6 +290,9 @@ contract LenderOperationTestDAI is LenderSetupDAI {
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         redeemAmount = strategy.balanceOf(thirdUser);
+        uint256 maxRedeem = strategy.maxRedeem(thirdUser);
+        assertGe(redeemAmount + 5, maxRedeem, "redeemAmount!!");
+        redeemAmount = maxRedeem;
         if (redeemAmount > 0){
             vm.prank(thirdUser);
             strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
@@ -295,7 +303,7 @@ contract LenderOperationTestDAI is LenderSetupDAI {
         assertGe(asset.balanceOf(secondUser) * 110 / 100, secondUserAmount, "!final balance secondUser");
         assertGe(asset.balanceOf(thirdUser) * 110 / 100, thirdUserAmount, "!final balance thirdUser");
 
-        checkStrategyTotals(strategy, 0, 0, 0);
+        checkStrategyTotalsSpecial(strategy, 0, 0, 0);
     }
 
     function test_emergencyWithdrawAll(uint256 _amount) public {
@@ -328,6 +336,9 @@ contract LenderOperationTestDAI is LenderSetupDAI {
         // Unlock Profits
         skip(strategy.profitMaxUnlockTime());
 
+        uint256 maxRedeem = strategy.maxRedeem(user);
+        assertGe(_amount + 5, maxRedeem, "maxRedeem!!");
+        _amount = maxRedeem;
         vm.prank(user);
         strategy.redeem(_amount, user, user, maxLoss);
         // verify users earned profit

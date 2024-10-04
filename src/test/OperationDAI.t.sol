@@ -145,23 +145,27 @@ contract OperationTestDAI is SetupDAI {
 
         // Get the expected fee
         uint256 expectedShares = (profit * 1_000) / MAX_BPS;
-
         assertEq(strategy.balanceOf(performanceFeeRecipient), expectedShares, "shares not same");
 
         uint256 balanceBefore = asset.balanceOf(user);
         
         // Withdraw all funds
+        uint256 maxRedeem = strategy.maxRedeem(user);
+        assertGe(_amount + 5, maxRedeem, "maxRedeem!!");
+        _amount = maxRedeem;
         vm.prank(user);
-        strategy.redeem(_amount, user, user, 0);
+        strategy.redeem(_amount, user, user, maxLoss);
 
         // TODO: Adjust if there are fees
         assertGe(asset.balanceOf(user), (balanceBefore + _amount + toAirdrop) * (MAX_BPS - 10_00 ) / MAX_BPS, "!final balance");
 
+        maxRedeem = strategy.maxRedeem(performanceFeeRecipient);
+        assertGe(expectedShares + 5, maxRedeem, "expectedShares!!");
+        expectedShares = maxRedeem;
         vm.prank(performanceFeeRecipient);
-        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, 0);
+        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, maxLoss);
 
-         
-
+        
         assertGe(asset.balanceOf(performanceFeeRecipient), expectedShares, "!perf fee out");
     }
 
@@ -213,19 +217,19 @@ contract OperationTestDAI is SetupDAI {
         // Withdraw part of funds user
         redeemAmount = strategy.balanceOf(user) / 8;
         vm.prank(user);
-        strategy.redeem(redeemAmount, user, user, 0);
+        strategy.redeem(redeemAmount, user, user, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Withdraw part of funds secondUser
         redeemAmount = strategy.balanceOf(secondUser) / 6;
         vm.prank(secondUser);
-        strategy.redeem(redeemAmount, secondUser, secondUser, 0);
+        strategy.redeem(redeemAmount, secondUser, secondUser, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Withdraw part of funds thirdUser
         redeemAmount = strategy.balanceOf(thirdUser) / 4;
         vm.prank(thirdUser);
-        strategy.redeem(redeemAmount, thirdUser, thirdUser, 0);
+        strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
         checkStrategyInvariantsAfterRedeem(strategy);
 
         // Report profit
@@ -245,19 +249,22 @@ contract OperationTestDAI is SetupDAI {
         redeemAmount = strategy.balanceOf(user);
         if (redeemAmount > 0){
             vm.prank(user);
-            strategy.redeem(redeemAmount, user, user, 0);
+            strategy.redeem(redeemAmount, user, user, maxLoss);
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         redeemAmount = strategy.balanceOf(secondUser);
         if (redeemAmount > 0){
             vm.prank(secondUser);
-            strategy.redeem(redeemAmount, secondUser, secondUser, 0);
+            strategy.redeem(redeemAmount, secondUser, secondUser, maxLoss);
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         redeemAmount = strategy.balanceOf(thirdUser);
+        uint256 maxRedeem = strategy.maxRedeem(thirdUser);
+        assertGe(redeemAmount + 5, maxRedeem, "redeemAmount!!");
+        redeemAmount = maxRedeem;
         if (redeemAmount > 0){
             vm.prank(thirdUser);
-            strategy.redeem(redeemAmount, thirdUser, thirdUser, 0);
+            strategy.redeem(redeemAmount, thirdUser, thirdUser, maxLoss);
             checkStrategyInvariantsAfterRedeem(strategy);
         }
         // verify users earned profit
@@ -265,7 +272,7 @@ contract OperationTestDAI is SetupDAI {
         assertGe(asset.balanceOf(secondUser) * 110 / 100, secondUserAmount, "!final balance secondUser");
         assertGe(asset.balanceOf(thirdUser) * 110 / 100, thirdUserAmount, "!final balance thirdUser");
 
-        checkStrategyTotals(strategy, 0, 0, 0);
+        checkStrategyTotalsSpecial(strategy, 0, 0, 0);
     }
 
     function test_emergencyWithdrawAll(uint256 _amount) public {
@@ -299,7 +306,7 @@ contract OperationTestDAI is SetupDAI {
         skip(strategy.profitMaxUnlockTime());
 
         vm.prank(user);
-        strategy.redeem(_amount, user, user, 0);
+        strategy.redeem(_amount, user, user, maxLoss);
         // verify users earned profit
         assertGt(asset.balanceOf(user), _amount, "!final balance");
 

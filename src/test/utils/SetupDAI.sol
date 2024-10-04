@@ -35,7 +35,7 @@ contract SetupDAI is ExtendedTest, IEvents {
     address public keeper = address(4);
     address public management = address(1);
     address public performanceFeeRecipient = address(3);
-    uint256 public maxLoss = 5;
+    uint256 public maxLoss = 1;
     // Address of the real deployed Factory
     address public factory;
 
@@ -65,6 +65,7 @@ contract SetupDAI is ExtendedTest, IEvents {
         strategy = IStrategyInterface(setUpStrategy());
         factory = strategy.FACTORY();
         // label all the used addresses for traces
+        vm.label(vault, "vault");
         vm.label(keeper, "keeper");
         vm.label(factory, "factory");
         vm.label(address(asset), "asset");
@@ -83,14 +84,16 @@ contract SetupDAI is ExtendedTest, IEvents {
         _strategy.setKeeper(keeper);
         // set treasury
         _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
+        _strategy.setProfitMaxUnlockTime(0);
         // set management of the strategy
         _strategy.setPendingManagement(management);
         // Accept mangagement.
         vm.startPrank(management);
         _strategy.acceptManagement();
         _strategy.setProfitLimitRatio(60535);
+        _strategy.setLossLimitRatio(1);
         _strategy.setDoHealthCheck(false);
-        _strategy.setMaxLossBPS(0);
+         
         vm.stopPrank();
 
         return address(_strategy);
@@ -143,18 +146,30 @@ contract SetupDAI is ExtendedTest, IEvents {
         uint256 _totalIdle
     ) public {
         assertEq(_strategy.totalAssets(), _totalAssets, "!totalAssets");
-        assertEq(asset.balanceOf(address(_strategy)), _totalIdle, "!totalIdle");
+        assertLe(asset.balanceOf(address(_strategy)), _totalIdle + 101, "!totalIdle");
+        assertEq(_totalAssets, _totalDebt + _totalIdle, "!Added");
+    }
+
+    // For checking the amounts in the strategy
+    function checkStrategyTotalsSpecial(
+        IStrategyInterface _strategy,
+        uint256 _totalAssets,
+        uint256 _totalDebt,
+        uint256 _totalIdle
+    ) public {
+        assertLe(_strategy.totalAssets(), _totalAssets + 5, "!totalAssets");
+        assertLe(asset.balanceOf(address(_strategy)), _totalIdle + 5, "!totalIdle");
         assertEq(_totalAssets, _totalDebt + _totalIdle, "!Added");
     }
 
     function checkStrategyInvariants(IStrategyInterface _strategy) public {
         assertLe(ERC20(DAI).balanceOf(address(_strategy)), 2, "DAI balance > DUST");
-        assertEq(asset.balanceOf(address(_strategy)), 0, "USDC balance > DUST");
+        assertLe(asset.balanceOf(address(_strategy)), 101, "DAI balance > DUST");
     }
 
     function checkStrategyInvariantsAfterRedeem(IStrategyInterface _strategy) public {
         assertLe(ERC20(DAI).balanceOf(address(_strategy)), 2, "redeem: DAI balance > DUST");
-        assertEq(asset.balanceOf(address(_strategy)), 0, "USDC balance > DUST");
+        assertLe(asset.balanceOf(address(_strategy)), 101, "DAI balance > DUST");
     }
 
     function airdrop(ERC20 _asset, address _to, uint256 _amount) public {

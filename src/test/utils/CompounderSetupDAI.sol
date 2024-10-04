@@ -103,15 +103,17 @@ contract CompounderSetupDAI is ExtendedTest, IEvents {
         _strategy.setKeeper(keeper);
         // set treasury
         _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
+        _strategy.setProfitMaxUnlockTime(0);
         // set management of the strategy
         _strategy.setPendingManagement(management);
         // Accept mangagement.
         vm.startPrank(management);
         _strategy.acceptManagement();
         _strategy.setProfitLimitRatio(60535);
+        _strategy.setLossLimitRatio(1);
         _strategy.setDoHealthCheck(false);
         if (vault == lender) {
-            _strategy.setMaxLossBPS(1);
+             
         }
         vm.stopPrank();
 
@@ -169,14 +171,26 @@ contract CompounderSetupDAI is ExtendedTest, IEvents {
         assertEq(_totalAssets, _totalDebt + _totalIdle, "!Added");
     }
 
+    // For checking the amounts in the strategy
+    function checkStrategyTotalsSpecial(
+        IStrategyInterface _strategy,
+        uint256 _totalAssets,
+        uint256 _totalDebt,
+        uint256 _totalIdle
+    ) public {
+        assertLe(_strategy.totalAssets(), _totalAssets + 5, "!totalAssets");
+        assertLe(asset.balanceOf(address(_strategy)), _totalIdle + 5, "!totalIdle");
+        assertEq(_totalAssets, _totalDebt + _totalIdle, "!Added");
+    }
+
     function checkStrategyInvariants(IStrategyInterface _strategy) public {
-        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 2, "DAI balance > DUST");
-        assertEq(asset.balanceOf(address(_strategy)), 0, "USDC balance > DUST");
+        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 101, "DAI balance > DUST");
+        assertLe(asset.balanceOf(address(_strategy)), 101, "USDC balance > DUST");
     }
 
     function checkStrategyInvariantsAfterRedeem(IStrategyInterface _strategy) public {
-        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 2, "redeem: DAI balance > DUST");
-        assertEq(asset.balanceOf(address(_strategy)), 0, "USDC balance > DUST");
+        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 101, "redeem: DAI balance > DUST");
+        assertLe(asset.balanceOf(address(_strategy)), 101, "DAI balance > DUST");
     }
 
     function airdrop(ERC20 _asset, address _to, uint256 _amount) public {

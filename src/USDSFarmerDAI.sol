@@ -15,9 +15,6 @@ contract USDSFarmerDAI is BaseHealthCheck {
 
     ///@notice The 4626 vault for USDS asset to farm.
     address public immutable vault;
-
-    ///@notice Maximum acceptable loss from the investment vault in basis points (default = 0).
-    uint256 public maxLossBPS;
     
     address private constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
     address private constant USDS = 0xdC035D45d973E3EC169d2276DDab16f1e407384F;
@@ -48,18 +45,17 @@ contract USDSFarmerDAI is BaseHealthCheck {
     }
 
     function availableWithdrawLimit(address) public view virtual override returns (uint256) {
-        return _balanceAsset() + IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) + 2; //2 wei rounding errors are possible due to investment vault
+        return _balanceAsset() + _vaultsMaxWithdraw();
+    }
+
+    function _vaultsMaxWithdraw() internal view returns (uint256) {
+        return IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this)));
     }
 
     function _freeFunds(uint256 _amount) internal override {
-        _amount = _min(_amount, IVault(vault).maxWithdraw(address(this)));
-        if (_amount == 0) return;
-        if (maxLossBPS == 0) {
-            IVault(vault).withdraw(_amount, address(this), address(this)); //vault --> USDS 
-        } else {
-            IVault(vault).withdraw(_amount, address(this), address(this), maxLossBPS); //vault --> USDS 
-        }
-        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), _balanceUSDS()); //USDS --> DAI 1:1
+        uint256 shares = IVault(vault).previewWithdraw(_amount);
+        shares = _min(shares, _balanceVault());
+        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), IVault(vault).redeem(shares, address(this), address(this))); //vault --> USDS -- 1:1 --> DAI
     }
 
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
@@ -67,6 +63,7 @@ contract USDSFarmerDAI is BaseHealthCheck {
         if (TokenizedStrategy.isShutdown()) {
             _totalAssets = balance + IVault(vault).convertToAssets(_balanceVault());
         } else {
+            balance = _min(balance, availableDepositLimit(address(this)));
             if (balance > ASSET_DUST) {
                 _deployFunds(balance);
             }
@@ -91,12 +88,10 @@ contract USDSFarmerDAI is BaseHealthCheck {
     }
 
     /**
-     * @notice Set the maximum loss for withdrawing from the vault in basis points
-     * @param _maxLossBPS the maximum loss in basis points
+     * @notice Deploy any donations of USDS.
      */
-    function setMaxLossBPS(uint256 _maxLossBPS) external onlyManagement {
-        require(_maxLossBPS <= MAX_BPS);
-        maxLossBPS = _maxLossBPS;
+    function deployDonations() external onlyManagement {
+        IVault(vault).deposit(_balanceUSDS(), address(this)); //USDS --> vault
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -105,13 +100,9 @@ contract USDSFarmerDAI is BaseHealthCheck {
 
     /**
      * @notice Withdraw funds from the vault into the strategy in an emergency.
-     * @param _amount the amount of vault shares to emergencyWithdraw
+     * @param _amount the amount of asset to emergencyWithdraw into the strategy
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 currentBalance = _balanceVault();
-        if (_amount > currentBalance) {
-            _amount = currentBalance;
-        }
-        _freeFunds(IVault(vault).convertToAssets(_amount));
+        _freeFunds(_min(_amount, _vaultsMaxWithdraw()));
     }
 }

@@ -20,9 +20,6 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     ///@notice The 4626 vault for USDS asset to farm.
     address public immutable vault;
 
-    ///@notice Maximum acceptable loss from the investment vault in basis points (default = 0).
-    uint256 public maxLossBPS;
-
     ///@notice Maximum acceptable fee out (DAI to USDC) in WAD units before we use UniswapV3 to swap instead of the PSM. (Default = 5e14 + 1)
     uint256 public maxAcceptableFeeOutPSM; //in WAD
 
@@ -78,31 +75,28 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     }
 
     function _deployFunds(uint256 _amount) internal override {
-        _amount = _min(_amount, _balancePSM() / SCALER);
-        if (_amount == 0) return;
         IPSM(PSM).sellGem(address(this), _amount); // USDC --> DAI 1:1 through PSM (in USDC amount)
-        IExchange(DAI_USDS_EXCHANGER).daiToUsds(address(this), _balanceDAI()); //DAI --> USDS 1:1
-        IVault(vault).deposit(_balanceUSDS(), address(this)); //USDS --> vault
+        IExchange(DAI_USDS_EXCHANGER).daiToUsds(address(this), _amount * SCALER); //DAI --> USDS 1:1
+        IVault(vault).deposit(_amount * SCALER, address(this)); //USDS --> vault
     }
 
     function availableWithdrawLimit(address /*_owner*/) public view override returns (uint256) {
+        return _balanceAsset() + _vaultsMaxWithdraw();
+    }
+
+    function _vaultsMaxWithdraw() internal view returns (uint256) {
         if (IPSM(PSM).tout() >= maxAcceptableFeeOutPSM) {
-            return _balanceAsset() + _min(asset.balanceOf(pool), IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER); //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
+            return IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER; //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
         } else {
-            return _balanceAsset() + _min(asset.balanceOf(pocket), IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER); //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
+            return _min(asset.balanceOf(pocket), IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER); //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
         }
     }
 
     function _freeFunds(uint256 _amount) internal override {
-        uint256 amountUSDS = _amount * SCALER;
-        amountUSDS = _min(amountUSDS, IVault(vault).maxWithdraw(address(this)));
-        if (amountUSDS == 0) return;
-        if (maxLossBPS == 0) {
-            IVault(vault).withdraw(amountUSDS, address(this), address(this)); //vault --> USDS 
-        } else {
-            IVault(vault).withdraw(amountUSDS, address(this), address(this), maxLossBPS); //vault --> USDS 
-        }
-        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), _balanceUSDS()); //USDS --> DAI 1:1
+        uint256 shares = IVault(vault).previewWithdraw(_amount * SCALER);
+        shares = _min(shares, _balanceVault());
+        if (shares == 0) return;
+        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), IVault(vault).redeem(shares, address(this), address(this))); //vault --> USDS -- 1:1 --> DAI
         uint256 feeOut = IPSM(PSM).tout(); //in WAD
         if (feeOut >= maxAcceptableFeeOutPSM) { //if PSM fee is not 0
             _swapFrom(DAI, address(asset), _balanceDAI(), _amount * (MAX_BPS - swapSlippageBPS) / MAX_BPS); //swap DAI --> USDC through Uniswap (in DAI amount)
@@ -116,6 +110,7 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
         if (TokenizedStrategy.isShutdown()) {
             _totalAssets = balance + IVault(vault).convertToAssets(_balanceVault()) / SCALER;
         } else {
+            balance = _min(balance, availableDepositLimit(address(this)));
             if (balance > ASSET_DUST) {
                 _deployFunds(balance);
             }
@@ -174,12 +169,11 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     }
 
     /**
-     * @notice Set the maximum loss for withdrawing from the vault in basis points
-     * @param _maxLossBPS the maximum loss in basis points
+     * @notice Deploy any donations of DAI or USDS.
      */
-    function setMaxLossBPS(uint256 _maxLossBPS) external onlyManagement {
-        require(_maxLossBPS <= MAX_BPS);
-        maxLossBPS = _maxLossBPS;
+    function deployDonations() external onlyManagement {
+        IExchange(DAI_USDS_EXCHANGER).daiToUsds(address(this), _balanceDAI()); //DAI --> USDS 1:1
+        IVault(vault).deposit(_balanceUSDS(), address(this)); //USDS --> vault
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -187,14 +181,10 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Withdraw funds from the vault into the strategy in an emergency. In case of an emergencyWithdraw with fees, management needs to call a report right after (ideally bundled). 
-     * @param _amount the amount of vault shares to emergencyWithdraw
+     * @notice Withdraw funds from the vault into the strategy in an emergency.
+     * @param _amount the amount of asset to emergencyWithdraw into the strategy
      */
     function _emergencyWithdraw(uint256 _amount) internal override {
-        uint256 currentBalance = _balanceVault();
-        if (_amount > currentBalance) {
-            _amount = currentBalance;
-        }
-        _freeFunds(IVault(vault).convertToAssets(_amount) / SCALER);
+        _freeFunds(_min(_amount, _vaultsMaxWithdraw()));
     }
 }

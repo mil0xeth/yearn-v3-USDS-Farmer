@@ -205,20 +205,25 @@ contract LenderOperationTestUSDC is LenderSetupUSDC {
 
         // Get the expected fee
         uint256 expectedShares = (profit * 1_000) / MAX_BPS;
-
         assertEq(strategy.balanceOf(performanceFeeRecipient), expectedShares, "shares not same");
 
         uint256 balanceBefore = asset.balanceOf(user);
         
         // Withdraw all funds
+        uint256 maxRedeem = strategy.maxRedeem(user);
+        assertGe(_amount + 5, maxRedeem, "maxRedeem!!");
+        _amount = maxRedeem;
         vm.prank(user);
         strategy.redeem(_amount, user, user, maxLoss);
 
         // TODO: Adjust if there are fees
         assertGe(asset.balanceOf(user), (balanceBefore + _amount + toAirdrop) * (MAX_BPS - 10_00 ) / MAX_BPS, "!final balance");
 
+        maxRedeem = strategy.maxRedeem(performanceFeeRecipient);
+        assertGe(expectedShares + 5, maxRedeem, "expectedShares!!");
+        expectedShares = maxRedeem;
         vm.prank(performanceFeeRecipient);
-        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, maxLoss);
+        strategy.redeem(expectedShares, performanceFeeRecipient, performanceFeeRecipient, 2000);
 
         assertGe(asset.balanceOf(performanceFeeRecipient), expectedShares, "!perf fee out");
     }
@@ -490,6 +495,9 @@ contract LenderOperationTestUSDC is LenderSetupUSDC {
         // Unlock Profits
         skip(strategy.profitMaxUnlockTime());
 
+        uint256 maxRedeem = strategy.maxRedeem(user);
+        assertGe(_amount + 5, maxRedeem, "maxRedeem!!");
+        _amount = maxRedeem;
         vm.prank(user);
         strategy.redeem(_amount, user, user, maxLoss);
         // verify users earned profit

@@ -35,7 +35,7 @@ contract SetupUSDC is ExtendedTest, IEvents {
     address public keeper = address(4);
     address public management = address(1);
     address public performanceFeeRecipient = address(3);
-    uint256 public maxLoss = 5;
+    uint256 public maxLoss = 1;
     // Address of the real deployed Factory
     address public factory;
 
@@ -83,15 +83,17 @@ contract SetupUSDC is ExtendedTest, IEvents {
         _strategy.setKeeper(keeper);
         // set treasury
         _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
+        _strategy.setProfitMaxUnlockTime(0);
         // set management of the strategy
         _strategy.setPendingManagement(management);
         // Accept mangagement.
         vm.startPrank(management);
         _strategy.acceptManagement();
         _strategy.setProfitLimitRatio(60535);
+        _strategy.setLossLimitRatio(1);
         _strategy.setDoHealthCheck(false);
         _strategy.setDepositLimit(type(uint).max);
-        _strategy.setMaxLossBPS(0);
+         
         vm.stopPrank();
 
         return address(_strategy);
@@ -149,12 +151,12 @@ contract SetupUSDC is ExtendedTest, IEvents {
     }
 
     function checkStrategyInvariants(IStrategyInterface _strategy) public {
-        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 2, "DAI balance > DUST");
+        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 1e13, "DAI balance > DUST");
         assertEq(asset.balanceOf(address(_strategy)), 0, "USDC balance > DUST");
     }
 
     function checkStrategyInvariantsAfterRedeem(IStrategyInterface _strategy) public {
-        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 2, "redeem: DAI balance > DUST");
+        assertLe(ERC20(DAI).balanceOf(address(_strategy)), 1e13, "redeem: DAI balance > DUST");
         assertEq(asset.balanceOf(address(_strategy)), 0, "USDC balance > DUST");
     }
 

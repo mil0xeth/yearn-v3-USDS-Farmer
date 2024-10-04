@@ -106,16 +106,18 @@ contract CompounderSetupUSDC is ExtendedTest, IEvents {
         _strategy.setKeeper(keeper);
         // set treasury
         _strategy.setPerformanceFeeRecipient(performanceFeeRecipient);
+        _strategy.setProfitMaxUnlockTime(0);
         // set management of the strategy
         _strategy.setPendingManagement(management);
         // Accept mangagement.
         vm.startPrank(management);
         _strategy.acceptManagement();
         _strategy.setProfitLimitRatio(60535);
+        _strategy.setLossLimitRatio(1);
         _strategy.setDoHealthCheck(false);
         _strategy.setDepositLimit(type(uint).max);
         if (vault == lender) {
-            _strategy.setMaxLossBPS(1);
+             
         }
         vm.stopPrank();
 
