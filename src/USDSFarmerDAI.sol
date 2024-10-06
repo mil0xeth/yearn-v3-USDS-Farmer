@@ -53,9 +53,9 @@ contract USDSFarmerDAI is BaseHealthCheck {
     }
 
     function _freeFunds(uint256 _amount) internal override {
-        uint256 shares = IVault(vault).previewWithdraw(_amount);
-        shares = _min(shares, _balanceVault());
-        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), IVault(vault).redeem(shares, address(this), address(this))); //vault --> USDS -- 1:1 --> DAI
+        _amount = IVault(vault).previewWithdraw(_amount);
+        _amount = _min(_amount, _balanceVault());
+        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), IVault(vault).redeem(_amount, address(this), address(this))); //vault --> USDS -- 1:1 --> DAI
     }
 
     function _harvestAndReport() internal override returns (uint256 _totalAssets) {
@@ -88,9 +88,9 @@ contract USDSFarmerDAI is BaseHealthCheck {
     }
 
     /**
-     * @notice Deploy any donations of USDS.
+     * @notice Deploy any idle of USDS.
      */
-    function deployDonations() external onlyManagement {
+    function deployIdle() external onlyManagement {
         IVault(vault).deposit(_balanceUSDS(), address(this)); //USDS --> vault
     }
 

@@ -93,15 +93,15 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     }
 
     function _freeFunds(uint256 _amount) internal override {
-        uint256 shares = IVault(vault).previewWithdraw(_amount * SCALER);
-        shares = _min(shares, _balanceVault());
-        if (shares == 0) return;
-        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), IVault(vault).redeem(shares, address(this), address(this))); //vault --> USDS -- 1:1 --> DAI
+        _amount = IVault(vault).previewWithdraw(_amount * SCALER);
+        _amount = _min(_amount, _balanceVault());
+        _amount = IVault(vault).redeem(_amount, address(this), address(this)); //vault --> USDS
+        IExchange(DAI_USDS_EXCHANGER).usdsToDai(address(this), _amount); //USDS -- 1:1 --> DAI
         uint256 feeOut = IPSM(PSM).tout(); //in WAD
         if (feeOut >= maxAcceptableFeeOutPSM) { //if PSM fee is not 0
-            _swapFrom(DAI, address(asset), _balanceDAI(), _amount * (MAX_BPS - swapSlippageBPS) / MAX_BPS); //swap DAI --> USDC through Uniswap (in DAI amount)
+            _swapFrom(DAI, address(asset), _amount, _amount * (MAX_BPS - swapSlippageBPS) / MAX_BPS / SCALER); //swap DAI --> USDC through Uniswap (in DAI amount)
         } else {
-            IPSM(PSM).buyGem(address(this), _balanceDAI() * WAD / (WAD + feeOut) / SCALER); // DAI --> USDC 1:1 through PSM (in USDC amount). Need to account for fees that will be added on top.
+            IPSM(PSM).buyGem(address(this), _amount * WAD / (WAD + feeOut) / SCALER); // DAI --> USDC 1:1 through PSM (in USDC amount). Need to account for fees that will be added on top.
         }
     }
 
@@ -169,9 +169,9 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     }
 
     /**
-     * @notice Deploy any donations of DAI or USDS.
+     * @notice Deploy any idle of DAI or USDS.
      */
-    function deployDonations() external onlyManagement {
+    function deployIdle() external onlyManagement {
         IExchange(DAI_USDS_EXCHANGER).daiToUsds(address(this), _balanceDAI()); //DAI --> USDS 1:1
         IVault(vault).deposit(_balanceUSDS(), address(this)); //USDS --> vault
     }
