@@ -67,7 +67,7 @@ contract USDSFarmerDAI is BaseHealthCheck {
             if (balance > ASSET_DUST) {
                 _deployFunds(balance);
             }
-            _totalAssets = IVault(vault).convertToAssets(_balanceVault());
+            _totalAssets = _balanceAsset() + IVault(vault).convertToAssets(_balanceVault());
         }
     }
 

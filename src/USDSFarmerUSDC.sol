@@ -114,7 +114,7 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
             if (balance > ASSET_DUST) {
                 _deployFunds(balance);
             }
-            _totalAssets = IVault(vault).convertToAssets(_balanceVault()) / SCALER;
+            _totalAssets = _balanceAsset() + IVault(vault).convertToAssets(_balanceVault()) / SCALER;
         }
     }
 
