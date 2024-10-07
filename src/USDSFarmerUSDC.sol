@@ -32,7 +32,6 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
     address private constant PSM = 0xf6e72Db5454dd049d0788e411b06CfAF16853042; //LITE-PSM
     address private constant DAI_USDS_EXCHANGER = 0x3225737a9Bbb6473CB4a45b7244ACa2BeFdB276A;
     address private constant pocket = 0x37305B1cD40574E4C5Ce33f8e8306Be057fD7341;
-    address private constant pool = 0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168;
     uint256 private constant SCALER = 1e12;
     uint256 private constant WAD = 1e18;
     uint256 private constant ASSET_DUST = 100;
