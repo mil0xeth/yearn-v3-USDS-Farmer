@@ -85,9 +85,9 @@ contract USDSFarmerUSDC is BaseHealthCheck, UniswapV3Swapper {
 
     function _vaultsMaxWithdraw() internal view returns (uint256) {
         if (IPSM(PSM).tout() >= maxAcceptableFeeOutPSM) {
-            return IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER; //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
+            return IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER; //vault maximum redeemable assets
         } else {
-            return _min(asset.balanceOf(pocket), IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER); //minimum of UniswapV3 liquidity and vault maximum withdrawable assets
+            return _min(asset.balanceOf(pocket), IVault(vault).convertToAssets(IVault(vault).maxRedeem(address(this))) / SCALER); //minimum of PSM liquidity and vault maximum redeemable assets
         }
     }
 
